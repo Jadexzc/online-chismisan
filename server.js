@@ -81,3 +81,10 @@ app.get('/', (req, res) => {
 http.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
+const cors = require("cors");
+
+app.use(cors({
+  origin: "https://jadexzc.github.io", // your GitHub Pages frontend
+  methods: ["GET", "POST"],
+  credentials: true
+}));
