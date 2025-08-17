@@ -8,9 +8,10 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
-    origin: "https://jadexzc.github.io", // ✅ Make sure this matches your GitHub Pages domain
+    origin: "https://jadexzc.github.io", 
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -18,16 +19,24 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 5000;
 
-// Static files (optional if serving static frontend)
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Connect to MongoDB
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI is not defined in .env");
+  process.exit(1);
+}
 
-// MongoDB connection (if you plan to store chat history)
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
 .then(() => console.log('✅ MongoDB connected'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+.catch(err => {
+  console.error('❌ MongoDB connection error:', err);
+  process.exit(1);
+});
+
+// Serve static frontend files (optional)
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Matchmaking logic
 let waitingUser = null;
@@ -96,6 +105,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// Fallback for main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
