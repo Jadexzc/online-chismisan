@@ -11,7 +11,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "https://jadexzc.github.io", // 
+    origin: "https://jadexzc.github.io", 
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -36,7 +36,7 @@ mongoose.connect(process.env.MONGO_URI, {
   process.exit(1);
 });
 
-// ✅ Serve static files
+// ✅ Serve static frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // 🔄 Matchmaking logic
