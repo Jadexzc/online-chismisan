@@ -11,7 +11,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "https://jadexzc.github.io", 
+    origin: "https://jadexzc.github.io",
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -19,13 +19,11 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 5000;
 
-// ✅ Check .env for MONGO_URI
 if (!process.env.MONGO_URI) {
   console.error("❌ MONGO_URI is not defined in .env");
   process.exit(1);
 }
 
-// ✅ MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -36,10 +34,18 @@ mongoose.connect(process.env.MONGO_URI, {
   process.exit(1);
 });
 
-// ✅ Serve static frontend files
+const messageSchema = new mongoose.Schema({
+  name: String,
+  content: String,
+  timestamp: {
+    type: Date,
+    default: Date.now
+  }
+});
+const Message = mongoose.model('Message', messageSchema);
+
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// 🔄 Matchmaking logic
 let waitingUser = null;
 const userMap = {};
 
@@ -72,12 +78,23 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('message', (msg) => {
+  socket.on('message', async (msg) => {
     if (socket.partner) {
       socket.partner.emit('message', {
         from: socket.username,
         text: msg,
       });
+
+      try {
+        const newMessage = new Message({
+          name: socket.username,
+          content: msg
+        });
+        await newMessage.save();
+        console.log('💾 Message saved to DB:', msg);
+      } catch (err) {
+        console.error('❌ Error saving message to DB:', err);
+      }
     }
   });
 
@@ -109,7 +126,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// ✅ Start server
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
