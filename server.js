@@ -1,30 +1,55 @@
+require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const path = require('path');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const { Server } = require('socket.io');
+
 const app = express();
-const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+const server = http.createServer(app);
 
-const PORT = 5000;
+const io = new Server(server, {
+  cors: {
+    origin: "https://jadexzc.github.io", 
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
+const PORT = process.env.PORT || 5000;
+
+// Connect to MongoDB
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI is not defined in .env");
+  process.exit(1);
+}
+
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('✅ MongoDB connected'))
+.catch(err => {
+  console.error('❌ MongoDB connection error:', err);
+  process.exit(1);
+});
+
+// Serve static frontend files (optional)
 app.use(express.static(path.join(__dirname, '../frontend')));
 
+// Matchmaking logic
 let waitingUser = null;
-
 const userMap = {};
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-
-  socket.on('typing', (isTyping) => {
-    if (socket.partner) {
-      socket.partner.emit('typing', isTyping);
-    }
-  });
+  console.log('🟢 User connected:', socket.id);
 
   socket.on('join', (username) => {
     socket.username = username;
 
     if (waitingUser) {
+      // Match with waiting user
       socket.partner = waitingUser;
       waitingUser.partner = socket;
 
@@ -36,15 +61,15 @@ io.on('connection', (socket) => {
 
       waitingUser = null;
     } else {
+      // Wait for next user
       waitingUser = socket;
       socket.emit('waiting');
     }
   });
 
-  socket.on('sessionKey', (key) => {
-    const partner = userMap[socket.id];
-    if (partner) {
-      partner.emit('sessionKey', key);
+  socket.on('typing', (isTyping) => {
+    if (socket.partner) {
+      socket.partner.emit('typing', isTyping);
     }
   });
 
@@ -57,8 +82,15 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('sessionKey', (key) => {
+    const partner = userMap[socket.id];
+    if (partner) {
+      partner.emit('sessionKey', key);
+    }
+  });
+
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
+    console.log('🔴 User disconnected:', socket.id);
 
     if (waitingUser === socket) {
       waitingUser = null;
@@ -73,18 +105,11 @@ io.on('connection', (socket) => {
   });
 });
 
-
+// Fallback for main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-http.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
-const cors = require("cors");
-
-app.use(cors({
-  origin: "https://jadexzc.github.io", // your GitHub Pages frontend
-  methods: ["GET", "POST"],
-  credentials: true
-}));
